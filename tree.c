@@ -141,6 +141,11 @@ void free_tree(struct tnode *node) {
   free(node);
 }
 
+//     3
+//   /   \
+//  2     5
+// / \   / \
+// 2   2 2   5
 void print_tree(struct tnode *node) {
   if (node == NULL) {
     printf("(empty tree)\n");
@@ -148,32 +153,51 @@ void print_tree(struct tnode *node) {
   }
 
   // height of the entire tree
-  int th = 1 + max(height(node->left), height(node->right));
+  int th = max(height(node->left), height(node->right));
 
-  // height of the tree in the output, it's double because of edges between
-  // numbers minus the last one which doesn't have edges.
-  int h = (th << 1) - 1;
+  // height of the tree in the output, including lines of edges
+  int h = ((th + 1) << 1) - 1;
+  int total_nodes = th << 1;
+  printf("total %d\n", total_nodes);
+  int w = (1 << th) + th;
+  if (w < 11)
+    w = 11;
 
-  // width of all rows
-  // (2 ^ h) - 1
-  int w = (1 << h) - 1;
-
-  // alloc a buffer of chars w * h + (\n * h) + \0
-  int buf_size = w * h + h + 1;
+  // alloc a buffer of chars w * h + (\n * h)
+  int buf_size = w * h + h;
   char *buf = (char *)malloc(buf_size);
-  memset(buf, ' ', buf_size - 2);
+  memset(buf, '.', buf_size);
 
   // place \n in the right places
   for (int i = 0; i < h; i++) {
-    int new_line_index = i * (w + 1) + w;
-    buf[new_line_index] = '\n';
+    int new_line_i = i * (w + 1) + w;
+    buf[new_line_i] = '\n';
+
+    // numbers are always on even rows
+    if (i % 2 != 0) {
+      continue;
+    }
+
+    int tree_level = i >> 1;
+
+    // how many numbers in the current  line
+    int per_row = 1 << tree_level; // 2^tree_level
+    int spacing = w / (per_row + 1);
+    int middle = w / 2;
+    printf("height %d per_line %d\n", tree_level, per_row);
+
+    // in each row there can be many numbers
+    for (int j = 0; j < per_row; j++) {
+      int number_pos = (j + 1) * spacing;
+      int abs_pos = i * (w + 1) + number_pos;
+      if (abs_pos < buf_size) {
+        buf[abs_pos] = '1';
+      }
+    }
   }
 
-  // buf[sizeof(buf) - 1] = '\0';
-
-  printf("do I have newline at %d\n", buf[63]);
-  printf("th %d h %d w %d buf len %d\n", th, h, w, buf_size);
   printf("%s", buf);
+  free(buf);
 }
 
 int main() {
