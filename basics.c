@@ -35,9 +35,7 @@ void count_all() {
     else
       ++nother;
 
-  // the code for "printf" actually is hardcoded in the C compiler itself, just
-  // the definition that lives in "stdio.h". The actual "printf" is included in
-  // the linking phase which happens after compilation.
+  // definition in "stdio.h".
   printf("digits =");
 
   for (i = 0; i < 10; ++i)
