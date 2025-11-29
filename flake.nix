@@ -24,6 +24,7 @@
             # glib
             gcc
             binsider
+            zig
           ];
         };
       }

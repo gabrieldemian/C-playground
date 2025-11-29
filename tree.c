@@ -2,17 +2,21 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 // the memory layout of structs in C are in the same order as they are defined.
 // size without padding: 20 bytes, with padding: 24 bytes.
 struct tnode {
-  int value;  // 4 bytes + (padding of 4 bytes if height were declared at the
-              // end)
+  int value; // 4 bytes + (padding of 4 bytes if height were declared at the
+             // end)
+
+  // a height is determined by it's biggest sub-tree either left or right
   int height; // 4 bytes
+
   // no padding here because value + height = 8 bytes
   struct tnode *left;  // 8 bytes (64 bit CPU)
   struct tnode *right; // 8 bytes
-  // if I declare height here, then `value` would get padding of + 4 bytes.
+  // if I declare height here, then `value` would get padding of + 4 bytes
 };
 
 // get height of a node
@@ -20,6 +24,13 @@ int height(struct tnode *node) {
   if (node == NULL)
     return 0;
   return node->height;
+}
+
+// get balance difference from the left side perspective
+int get_balance_diff(struct tnode *node) {
+  if (node == NULL)
+    return 0;
+  return height(node->left) - height(node->right);
 }
 
 // get maximum of two integers
@@ -39,33 +50,76 @@ struct tnode *new_node(int value) {
   return node;
 }
 
-void insert(struct tnode *node, int value) {
+struct tnode *right_rotate(struct tnode *y) {
+  struct tnode *x = y->left;
+  struct tnode *T2 = x->right;
+
+  x->right = y;
+  y->left = T2;
+
+  y->height = max(height(y->left), height(y->right)) + 1;
+  x->height = max(height(x->left), height(x->right)) + 1;
+
+  return x; // new root
+}
+
+struct tnode *left_rotate(struct tnode *x) {
+  struct tnode *y = x->right;
+  struct tnode *T2 = y->left;
+
+  y->left = x;
+  x->right = T2;
+
+  x->height = max(height(x->left), height(x->right)) + 1;
+  y->height = max(height(y->left), height(y->right)) + 1;
+
+  return y; // new root
+}
+
+// Insert a new value into the node
+void insert(struct tnode **node_ptr, int value) {
+  struct tnode *node = *node_ptr;
+
   if (node == NULL) {
-    node = new_node(value);
+    *node_ptr = new_node(value);
     return;
   }
 
-  // continue on the LEFT side
   if (value < node->value) {
-    if (node->left == NULL) {
-      node->left = new_node(value);
-    } else {
-      insert(node->left, value);
-    }
+    insert(&node->left, value);
   }
 
-  // continue on the RIGHT side
   if (value > node->value) {
-    if (node->right == NULL) {
-      node->right = new_node(value);
-    } else {
-      insert(node->right, value);
-    }
+    insert(&node->right, value);
   }
+
   node->height = 1 + max(height(node->left), height(node->right));
-  // don't insert duplicates
+
+  int balance = get_balance_diff(node);
+
+  // if unbalanced, there are 4 cases
+
+  if (balance > 1) {
+    if (value < node->left->value) {
+      *node_ptr = right_rotate(node);
+    } else {
+      node->left = left_rotate(node->left);
+      *node_ptr = right_rotate(node);
+    }
+  } else if (balance < -1) {
+    if (value > node->right->value) {
+      *node_ptr = left_rotate(node);
+    } else {
+      node->right = right_rotate(node->right);
+      *node_ptr = left_rotate(node);
+    }
+  } else {
+    // no rotation needed, just update the current root
+    *node_ptr = node;
+  }
 }
 
+// get a node in the tree where it's value equals `value`
 struct tnode *get(struct tnode *node, int value) {
   if (node == NULL) {
     return NULL;
@@ -79,30 +133,62 @@ struct tnode *get(struct tnode *node, int value) {
   return node;
 }
 
-void free_tree(struct tnode *root) {
-  if (root == NULL)
+void free_tree(struct tnode *node) {
+  if (node == NULL)
     return;
-  free_tree(root->left);
-  free_tree(root->right);
-  free(root);
+  free_tree(node->left);
+  free_tree(node->right);
+  free(node);
+}
+
+void print_tree(struct tnode *node) {
+  if (node == NULL) {
+    printf("(empty tree)\n");
+    return;
+  }
+
+  // height of the entire tree
+  int th = 1 + max(height(node->left), height(node->right));
+
+  // height of the tree in the output, it's double because of edges between
+  // numbers minus the last one which doesn't have edges.
+  int h = (th << 1) - 1;
+
+  // width of all rows
+  // (2 ^ h) - 1
+  int w = (1 << h) - 1;
+
+  // alloc a buffer of chars w * h + (\n * h) + \0
+  int buf_size = w * h + h + 1;
+  char *buf = (char *)malloc(buf_size);
+  memset(buf, ' ', buf_size - 2);
+
+  // place \n in the right places
+  for (int i = 0; i < h; i++) {
+    int new_line_index = i * (w + 1) + w;
+    buf[new_line_index] = '\n';
+  }
+
+  // buf[sizeof(buf) - 1] = '\0';
+
+  printf("do I have newline at %d\n", buf[63]);
+  printf("th %d h %d w %d buf len %d\n", th, h, w, buf_size);
+  printf("%s", buf);
 }
 
 int main() {
-  struct tnode *node = new_node(19);
-  insert(node, 18);
-  insert(node, 17);
-  insert(node, 20);
-  insert(node, 21);
+  struct tnode *node = new_node(1);
 
-  printf("root value: %d height: %d \n", node->value, node->height);
-  printf("root left: %d height: %d\n", node->left->value, node->left->height);
-  printf("root left left: %d height: %d\n", node->left->left->value,
-         node->left->left->height);
-  printf("root right: %d height: %d\n", node->right->value,
-         node->right->height);
+  for (int i = 0; i < 4; i++) {
+    insert(&node, i + 1);
+  }
+  // height 2 = 7 width
 
-  printf("found 17?: %p\n", get(node, 17));
-  printf("found 20?: %p\n", get(node, 20));
+  print_tree(node);
+  // printf("\n");
+  // printf("root v: %d\n", node->value);
+  // printf("found 3?: %p\n", get(node, 3));
+  // printf("found 2?: %p\n", get(node, 2));
 
   free_tree(node);
   return 0;
