@@ -1,4 +1,4 @@
-// Simple implementation of a non-balanced binary tree.
+// Simple implementation of a self-balanced binary tree.
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -143,6 +143,8 @@ void free_tree(struct tnode *node) {
   free(node);
 }
 
+// Function to print trees like this:
+//
 // .......3.........
 // .................
 // ...1.......7.....
@@ -150,74 +152,57 @@ void free_tree(struct tnode *node) {
 // .0...2...5...8...
 // .................
 // ........4.6...9..
+//
+// river that flows down
+// i wrote this code, lost time, and
+// both will not return
 void print_tree(struct tnode *node) {
-  if (node == NULL) {
+  if (!node) {
     printf("(empty tree)\n");
     return;
   }
 
   const int th = node->height;
   const int h = (th << 1) - 1;
-  const int w = (1 << th) | 1; // force odd using OR
+  const int w = (1 << th) | 1;
   const int buf_size = (w + 1) * h;
-  char *const buf = malloc(buf_size);
+  char *buf = malloc(buf_size);
   buf[buf_size - 1] = '\0';
 
+  // add dots and newlines
   for (int i = 0; i < h; i++) {
-    char *row_start = buf + i * (w + 1);
-    memset(row_start, '.', w);
-    row_start[w] = '\n';
+    char *row = buf + i * (w + 1);
+    for (int j = 0; j < w; j++)
+      row[j] = '.';
+    row[w] = '\n';
   }
 
-  struct tnode *nodes[MAX_NODES];
-  int front = 0, rear = 0;
+  struct tnode *q[MAX_NODES];
+  int f = 0, r = 0;
+  q[r++] = node;
 
-  // single-pass BFS with printing
-  nodes[rear++] = node;
-  int level_start = 0;
-  int level_end = 1;
+  for (int lvl = 0; lvl < th; lvl++) {
+    const int row = lvl << 1;
+    const int cnt = 1 << lvl;
+    const int span = 1 << (th - lvl);
+    const int half = span >> 1;
+    int next_r = r;
 
-  for (int i = 0; i < th; i++) {
-    const int display_row = i << 1;        // tree_level * 2
-    const int per_row = 1 << i;            // 2^i
-    const int level_span = 1 << (th - i);  // 2^(th-i)
-    const int half_span = level_span >> 1; // level_span / 2
+    for (int i = 0; i < cnt && f < r; i++) {
+      struct tnode *n = q[f++];
+      if (!n)
+        continue;
 
-    int next_start = level_end;
-    int next_end = next_start;
-
-    // iterate on nodes of each row "i"
-    for (int j = 0; j < per_row; j++) {
-      const int node_idx = level_start + j;
-      if (node_idx >= level_end)
-        break;
-
-      struct tnode *current = nodes[node_idx];
-
-      if (current != NULL) {
-        const int number_pos = (j * level_span) + half_span;
-        const int abs_pos = display_row * (w + 1) + number_pos;
-
-        if (abs_pos < buf_size) {
-          buf[abs_pos] = '0' + (current->value % 10);
-        }
-
-        // enqueue children
-        if (next_end < MAX_NODES - 1) {
-          nodes[next_end++] = current->left;
-          nodes[next_end++] = current->right;
-        }
-      } else {
-        // NULL nodes
-        if (next_end < MAX_NODES - 1) {
-          nodes[next_end++] = NULL;
-          nodes[next_end++] = NULL;
-        }
+      const int pos = row * (w + 1) + (i * span + half);
+      if (pos < buf_size)
+        // trick to convert numbers to characters
+        buf[pos] = '0' + (n->value % 10);
+      if (next_r < MAX_NODES - 1) {
+        q[next_r++] = n->left;
+        q[next_r++] = n->right;
       }
     }
-
-    level_start = next_start;
-    level_end = next_end;
+    r = next_r;
   }
 
   printf("%s", buf);
