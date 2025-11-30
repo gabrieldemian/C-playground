@@ -153,15 +153,15 @@ void print_tree(struct tnode *node) {
   }
 
   // height of the entire tree
-  int th = max(height(node->left), height(node->right));
+  int th = node->height;
 
   // height of the tree in the output, including lines of edges
   int h = ((th + 1) << 1) - 1;
-  int total_nodes = th << 1;
-  printf("total %d\n", total_nodes);
-  int w = (1 << th) + th;
-  if (w < 11)
-    w = 11;
+  // how many nodes there are at the bottom
+  int bn = 1 << th;
+  int w = bn;
+  if (w % 2 == 0)
+    w++;
 
   // alloc a buffer of chars w * h + (\n * h)
   int buf_size = w * h + h;
@@ -184,14 +184,28 @@ void print_tree(struct tnode *node) {
     int per_row = 1 << tree_level; // 2^tree_level
     int spacing = w / (per_row + 1);
     int middle = w / 2;
-    printf("height %d per_line %d\n", tree_level, per_row);
+    int parent_span = w / per_row;
+
+    int level_span = 1 << (th - tree_level);
+    int node_width = level_span;
+
+    printf("height %d spacing %d\n", tree_level, spacing);
 
     // in each row there can be many numbers
     for (int j = 0; j < per_row; j++) {
-      int number_pos = (j + 1) * spacing;
+      int left_edge = j * level_span;
+      int right_edge = (j + 1) * level_span - 1;
+      int number_pos = (left_edge + right_edge) / 2;
       int abs_pos = i * (w + 1) + number_pos;
+
       if (abs_pos < buf_size) {
-        buf[abs_pos] = '1';
+        if (tree_level == 0) {
+          buf[abs_pos] = '3'; // root
+        } else if (j % 2 == 0) {
+          buf[abs_pos] = '2'; // left nodes
+        } else {
+          buf[abs_pos] = '5'; // right nodes
+        }
       }
     }
   }
@@ -203,10 +217,9 @@ void print_tree(struct tnode *node) {
 int main() {
   struct tnode *node = new_node(1);
 
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < 50; i++) {
     insert(&node, i + 1);
   }
-  // height 2 = 7 width
 
   print_tree(node);
   // printf("\n");
