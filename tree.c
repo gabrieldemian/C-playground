@@ -87,10 +87,10 @@ void insert(struct tnode **node_ptr, int value) {
 
   if (value < node->value) {
     insert(&node->left, value);
-  }
-
-  if (value > node->value) {
+  } else if (value > node->value) {
     insert(&node->right, value);
+  } else {
+    return;
   }
 
   node->height = 1 + max(height(node->left), height(node->right));
@@ -141,91 +141,95 @@ void free_tree(struct tnode *node) {
   free(node);
 }
 
-//     3
-//   /   \
-//  2     5
-// / \   / \
-// 2   2 2   5
+// .......3.........
+// .................
+// ...1.......7.....
+// .................
+// .0...2...5...8...
+// .................
+// ........4.6...9..
 void print_tree(struct tnode *node) {
   if (node == NULL) {
     printf("(empty tree)\n");
     return;
   }
 
-  // height of the entire tree
   int th = node->height;
-
-  // height of the tree in the output, including lines of edges
-  int h = ((th + 1) << 1) - 1;
-  // how many nodes there are at the bottom
-  int bn = 1 << th;
-  int w = bn;
+  int h = (th << 1) - 1;
+  int w = (1 << th);
   if (w % 2 == 0)
     w++;
 
-  // alloc a buffer of chars w * h + (\n * h)
-  int buf_size = w * h + h;
-  char *buf = (char *)malloc(buf_size);
+  int buf_size = w * h + h + 1;
+  char *buf = malloc(buf_size);
   memset(buf, '.', buf_size);
+  buf[buf_size - 1] = '\0';
 
-  // place \n in the right places
+  // place newlines
   for (int i = 0; i < h; i++) {
-    int new_line_i = i * (w + 1) + w;
-    buf[new_line_i] = '\n';
+    buf[i * (w + 1) + w] = '\n';
+  }
 
-    // numbers are always on even rows
-    if (i % 2 != 0) {
-      continue;
-    }
+  // single array that can hold a complete tree
+  struct tnode *nodes[(1 << 4) + 1];
+  int front = 0, rear = 0;
 
-    int tree_level = i >> 1;
+  // BFS with position tracking
+  // also it is needed to keep track of null nodes to properly position them in
+  // the buffer.
+  nodes[rear++] = node;
+  int tree_level = 0;
 
-    // how many numbers in the current  line
-    int per_row = 1 << tree_level; // 2^tree_level
-    int spacing = w / (per_row + 1);
-    int middle = w / 2;
-    int parent_span = w / per_row;
-
+  while (front < rear && tree_level < th) {
+    int display_row = tree_level * 2;
+    int per_row = 1 << tree_level;
     int level_span = 1 << (th - tree_level);
-    int node_width = level_span;
 
-    printf("height %d spacing %d\n", tree_level, spacing);
+    // loop over numbers in the row "i"
+    for (int j = 0; j < per_row && front < rear; j++) {
+      struct tnode *current = nodes[front++];
 
-    // in each row there can be many numbers
-    for (int j = 0; j < per_row; j++) {
-      int left_edge = j * level_span;
-      int right_edge = (j + 1) * level_span - 1;
-      int number_pos = (left_edge + right_edge) / 2;
-      int abs_pos = i * (w + 1) + number_pos;
+      if (current != NULL) {
+        int left_edge = j * level_span;
+        int right_edge = (j + 1) * level_span - 1;
+        int number_pos = (left_edge + right_edge) / 2;
+        int abs_pos = display_row * (w + 1) + number_pos;
 
-      if (abs_pos < buf_size) {
-        if (tree_level == 0) {
-          buf[abs_pos] = '3'; // root
-        } else if (j % 2 == 0) {
-          buf[abs_pos] = '2'; // left nodes
-        } else {
-          buf[abs_pos] = '5'; // right nodes
+        if (abs_pos < buf_size) {
+          char num_str[12];
+          snprintf(num_str, sizeof(num_str), "%d", current->value);
+          buf[abs_pos] = num_str[0];
+        }
+
+        // enqueue children
+        if (rear < (1 << 4)) {
+          nodes[rear++] = current->left;
+          nodes[rear++] = current->right;
+        }
+      } else {
+        // enqueue NULL placeholders
+        if (rear < (1 << 4)) {
+          nodes[rear++] = NULL;
+          nodes[rear++] = NULL;
         }
       }
     }
+
+    tree_level++;
   }
 
-  printf("%s", buf);
+  printf("%s\n", buf);
   free(buf);
 }
 
 int main() {
-  struct tnode *node = new_node(1);
+  struct tnode *node = NULL;
 
-  for (int i = 0; i < 50; i++) {
-    insert(&node, i + 1);
+  for (int i = 0; i < 10; i++) {
+    insert(&node, i);
   }
 
   print_tree(node);
-  // printf("\n");
-  // printf("root v: %d\n", node->value);
-  // printf("found 3?: %p\n", get(node, 3));
-  // printf("found 2?: %p\n", get(node, 2));
 
   free_tree(node);
   return 0;
