@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define MAX_NODES (1 << 4) // = 16
+
 // the memory layout of structs in C are in the same order as they are defined.
 // size without padding: 20 bytes, with padding: 24 bytes.
 struct tnode {
@@ -154,71 +156,71 @@ void print_tree(struct tnode *node) {
     return;
   }
 
-  int th = node->height;
-  int h = (th << 1) - 1;
-  int w = (1 << th);
-  if (w % 2 == 0)
-    w++;
-
-  int buf_size = w * h + h + 1;
-  char *buf = malloc(buf_size);
-  memset(buf, '.', buf_size);
+  const int th = node->height;
+  const int h = (th << 1) - 1;
+  const int w = (1 << th) | 1; // force odd using OR
+  const int buf_size = (w + 1) * h;
+  char *const buf = malloc(buf_size);
   buf[buf_size - 1] = '\0';
 
-  // place newlines
   for (int i = 0; i < h; i++) {
-    buf[i * (w + 1) + w] = '\n';
+    char *row_start = buf + i * (w + 1);
+    memset(row_start, '.', w);
+    row_start[w] = '\n';
   }
 
-  // single array that can hold a complete tree
-  struct tnode *nodes[(1 << 4) + 1];
+  struct tnode *nodes[MAX_NODES];
   int front = 0, rear = 0;
 
-  // BFS with position tracking
-  // also it is needed to keep track of null nodes to properly position them in
-  // the buffer.
+  // single-pass BFS with printing
   nodes[rear++] = node;
-  int tree_level = 0;
+  int level_start = 0;
+  int level_end = 1;
 
-  while (front < rear && tree_level < th) {
-    int display_row = tree_level * 2;
-    int per_row = 1 << tree_level;
-    int level_span = 1 << (th - tree_level);
+  for (int i = 0; i < th; i++) {
+    const int display_row = i << 1;        // tree_level * 2
+    const int per_row = 1 << i;            // 2^i
+    const int level_span = 1 << (th - i);  // 2^(th-i)
+    const int half_span = level_span >> 1; // level_span / 2
 
-    // loop over numbers in the row "i"
-    for (int j = 0; j < per_row && front < rear; j++) {
-      struct tnode *current = nodes[front++];
+    int next_start = level_end;
+    int next_end = next_start;
+
+    // iterate on nodes of each row "i"
+    for (int j = 0; j < per_row; j++) {
+      const int node_idx = level_start + j;
+      if (node_idx >= level_end)
+        break;
+
+      struct tnode *current = nodes[node_idx];
 
       if (current != NULL) {
-        int left_edge = j * level_span;
-        int right_edge = (j + 1) * level_span - 1;
-        int number_pos = (left_edge + right_edge) / 2;
-        int abs_pos = display_row * (w + 1) + number_pos;
+        const int number_pos = (j * level_span) + half_span;
+        const int abs_pos = display_row * (w + 1) + number_pos;
 
         if (abs_pos < buf_size) {
-          char num_str[12];
-          snprintf(num_str, sizeof(num_str), "%d", current->value);
-          buf[abs_pos] = num_str[0];
+          buf[abs_pos] = '0' + (current->value % 10);
         }
 
         // enqueue children
-        if (rear < (1 << 4)) {
-          nodes[rear++] = current->left;
-          nodes[rear++] = current->right;
+        if (next_end < MAX_NODES - 1) {
+          nodes[next_end++] = current->left;
+          nodes[next_end++] = current->right;
         }
       } else {
-        // enqueue NULL placeholders
-        if (rear < (1 << 4)) {
-          nodes[rear++] = NULL;
-          nodes[rear++] = NULL;
+        // NULL nodes
+        if (next_end < MAX_NODES - 1) {
+          nodes[next_end++] = NULL;
+          nodes[next_end++] = NULL;
         }
       }
     }
 
-    tree_level++;
+    level_start = next_start;
+    level_end = next_end;
   }
 
-  printf("%s\n", buf);
+  printf("%s", buf);
   free(buf);
 }
 
